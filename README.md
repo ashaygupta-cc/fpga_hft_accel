@@ -1,12 +1,10 @@
 # FPGA High-Frequency Trading Accelerator
 
-![Project Logo](images/logo.png)
-
 ## Overview
 
 This project implements a low-latency High-Frequency Trading (HFT) accelerator using FPGA technology. The system features a complete Limit Order Book (LOB) matching engine implemented directly in hardware logic, eliminating unpredictable delays associated with traditional operating systems. By leveraging FPGA parallelism and custom UART-based communication protocols, the accelerator achieves microsecond-level order processing speeds.
 
-The project was developed as part of a research initiative at the Indian Institute of Information Technology, Vadodara, and demonstrates the feasibility of hardware-accelerated trading systems for real-time financial markets.
+This project was developed as a Computer Organization and Architecture (COA) semester project, demonstrating the feasibility of hardware-accelerated trading systems for real-time financial markets.
 
 ## Features
 
@@ -289,18 +287,17 @@ This project welcomes contributions from the FPGA and HFT communities. Areas for
 
 ## License
 
-This project is developed for educational and research purposes at the Indian Institute of Information Technology, Vadodara. Please contact the authors for licensing inquiries.
+This project is developed for educational and research purposes. Please contact the authors for licensing inquiries.
 
 ## Authors
 
-- **Ashay Gupta** (202451024) - Dept. of Computer Engineering, IIIT Vadodara
-- **Nandish Chauhan** (202451040) - Dept. of Computer Engineering, IIIT Vadodara
+- **Ashay Gupta**
+- **Nandish Chauhan**
 
 ## Acknowledgments
 
-- Xilinx University Program for FPGA development tools
-- IIIT Vadodara for research facilities and support
-- Financial technology research community for inspiration
+- Xilinx University Program for providing FPGA development tools and resources
+- Financial technology research community for inspiration and guidance
 
 ## References
 
