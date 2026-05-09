@@ -1,0 +1,15 @@
+Vivado Simulator v2025.1.0
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+Running: C:/Xilinx/2025.1/Vivado/bin/unwrapped/win64.o/xelab.exe --incr --debug typical --relax --mt 2 -L xil_defaultlib -L uvm -L unisims_ver -L unimacro_ver -L secureip --snapshot tb_hft_top_behav xil_defaultlib.tb_hft_top xil_defaultlib.glbl -log elaborate.log 
+Using 2 slave threads.
+Starting static elaboration
+Pass Through NonSizing Optimizer
+ERROR: [VRFC 10-3180] cannot find port 'best_ask_qty' on this module [C:/Users/ashay_nsjrnqt/OneDrive/Desktop/fpga_hft_accel/project_1.srcs/sim_1/new/tb_hft_top.sv:35]
+ERROR: [VRFC 10-3180] cannot find port 'best_ask_price' on this module [C:/Users/ashay_nsjrnqt/OneDrive/Desktop/fpga_hft_accel/project_1.srcs/sim_1/new/tb_hft_top.sv:34]
+ERROR: [VRFC 10-3180] cannot find port 'best_bid_qty' on this module [C:/Users/ashay_nsjrnqt/OneDrive/Desktop/fpga_hft_accel/project_1.srcs/sim_1/new/tb_hft_top.sv:33]
+ERROR: [VRFC 10-3180] cannot find port 'best_bid_price' on this module [C:/Users/ashay_nsjrnqt/OneDrive/Desktop/fpga_hft_accel/project_1.srcs/sim_1/new/tb_hft_top.sv:32]
+ERROR: [VRFC 10-8530] module 'uart_rx(BAUD_RATE=9600)' is ignored due to previous errors [C:/Users/ashay_nsjrnqt/OneDrive/Desktop/fpga_hft_accel/project_1.srcs/sources_1/new/uart_rx.v:3]
+ERROR: [VRFC 10-8530] module 'order_book(MAX_LEVELS=8)' is ignored due to previous errors [C:/Users/ashay_nsjrnqt/OneDrive/Desktop/fpga_hft_accel/project_1.srcs/sources_1/new/order_book.sv:3]
+ERROR: [VRFC 10-8530] module 'uart_tx(BAUD_RATE=9600)' is ignored due to previous errors [C:/Users/ashay_nsjrnqt/OneDrive/Desktop/fpga_hft_accel/project_1.srcs/sources_1/new/uart_tx.v:3]
+ERROR: [XSIM 43-3322] Static elaboration of top level Verilog design unit(s) in library work failed.

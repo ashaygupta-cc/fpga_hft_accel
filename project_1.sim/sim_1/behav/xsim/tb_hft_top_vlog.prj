@@ -1,0 +1,17 @@
+# compile verilog/system verilog design source files
+verilog xil_defaultlib  --include "../../../../../../../../../Xilinx/2025.1/Vivado/data/rsb/busdef" \
+"../../../../project_1.srcs/sources_1/new/uart_rx.v" \
+"../../../../project_1.srcs/sources_1/new/uart_tx.v" \
+
+sv xil_defaultlib  --include "../../../../../../../../../Xilinx/2025.1/Vivado/data/rsb/busdef" \
+"../../../../project_1.srcs/sources_1/new/book_tx_fsm.sv" \
+"../../../../project_1.srcs/sources_1/new/cmd_parser.sv" \
+"../../../../project_1.srcs/sources_1/new/hft_top.sv" \
+"../../../../project_1.srcs/sources_1/new/order_book.sv" \
+"../../../../project_1.srcs/sim_1/new/tb_hft_top.sv" \
+
+# compile glbl module
+verilog xil_defaultlib "glbl.v"
+
+# Do not sort compile order
+nosort

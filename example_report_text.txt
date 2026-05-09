@@ -1,0 +1,1067 @@
+-- --
+Yacc: Yet AnotherCompiler-Compiler
+Stephen C.Johnson
+ABSTRACT
+Computer program inputgenerally has some structure; in fact, every computer pro-
+gram that does input can be thought of as deﬁning an ‘‘input language’’ which it accepts.An input language may be as complex as a programming language, or as simple as asequence of numbers. Unfortunately, usual input facilities are limited, difﬁcult to use,and often are lax about checking their inputsfor validity.
+Yacc provides a general tool for describing the input to a computer program. The
+Yacc user speciﬁes the structures of his input, together with code to be invoked as eachsuch structure is recognized. Yacc turns such a speciﬁcation into a subroutine that han-dles the input process; frequently, it is convenient and appropriate to have most of theﬂowof control inthe user’s application handled by thissubroutine.
+The input subroutine produced by Yacc calls a user-supplied routine to return the
+next basic input item. Thus, the user can specify his input in terms of individual inputcharacters, or in terms of higher level constructs such as names and numbers. The user-supplied routine may also handle idiomatic features such as comment and continuationconventions, which typically defy easy grammatical speciﬁcation.
+Yacc iswritten inportable C. The class of speciﬁcations accepted isa very general
+one: LALR(1) grammars withdisambiguatingrules.
+In addition to compilers for C, APL, Pascal, RATFOR, etc., Yacc has also been
+used for less conventional languages, including a phototypesetter language, several deskcalculator languages, a document retrieval system,and a Fortran debugging system.
+0: Introduction
+Yacc provides a general tool for imposing structure on the input to a computer program. The Yacc
+user prepares a speciﬁcation of the input process; this includes rules describing the input structure, code tobe invoked when these rules are recognized, and a low-level routine to do the basic input. Yacc then gen-erates a function to control the input process. This function, called a parser, calls the user-supplied low-
+level input routine (the lexical analyzer ) to pick up the basic items (called tokens) from the input stream.
+These tokens are organized according tothe inputstructure rules, called grammar rules ;when one of these
+rules has been recognized, then user code supplied for this rule, an action, is invoked; actions have the
+abilitytoreturn values and make use of the values of other actions.
+Yacc is written in a portable dialect of C
+1and the actions, and output subroutine, are in C as well.
+Moreover, many of the syntactic conventions of Yacc follow C.
+The heart of the input speciﬁcation is a collection of grammar rules. Each rule describes an allow-
+able structure and gives ita name. Forexample, one grammar rule mightbe
+date : month /ulname day ´,´ year ;
+Here,date,month /ulname,day, andyearrepresent structures of interest in the input process; presumably,
+month /ulname,day, andyearare deﬁned elsewhere. The comma ‘‘,’’ is enclosed in single quotes; this
+implies that the comma is to appear literally in the input. The colon and semicolon merely serve as punc-tuation in the rule, and have no signiﬁcance in controlling the input. Thus, with proper deﬁnitions, the-- --
+PS1:15-2 Yacc: Yet Another Compiler-Compiler
+input
+July 4, 1776
+mightbe matched by the above rule.
+An important part of the input process is carried out by the lexical analyzer. This user routine reads
+the input stream, recognizing the lower level structures, and communicates these tokens to the parser. Forhistorical reasons, a structure recognized by the lexical analyzer is called a terminal symbol , while the
+structure recognized by the parser is called a nonterminal symbol . To avoid confusion, terminal symbols
+willusuallybe referred toas tokens.
+There is considerable leeway in deciding whether to recognize structures using the lexical analyzer
+or grammar rules. Forexample, the rules
+month /ulname : ´J´ ´a´ ´n´ ;
+month /ulname : ´F´ ´e´ ´b´ ;
+...
+month /ulname : ´D´ ´e´ ´c´ ;
+might be used in the above example. The lexical analyzer would only need to recognize individual letters,
+andmonth /ulnamewould be a nonterminal symbol. Such low-level rules tend to waste time and space, and
+may complicate the speciﬁcation beyond Yacc’s ability to deal with it. Usually, the lexical analyzer wouldrecognize the month names, and return an indication that a month /ulnamewas seen; in this case,
+month /ulnamewould be a token.
+Literal characters such as ‘‘,’’ must also be passed through the lexical analyzer, and are also con-
+sidered tokens.
+Speciﬁcation ﬁlesare very ﬂexible. It isrealively easy toadd tothe above example the rule
+date : month´/´ day ´/´ year ;
+allowing
+7 /4 /1776
+as a synonymfor
+July4, 1776
+In most cases, this new rule could be ‘‘slipped in’’ to a working system with minimal effort, and little
+danger of disruptingexistinginput.
+The input being read may not conform to the speciﬁcations. These input errors are detected as early
+as is theoretically possible with a left-to-right scan; thus, not only is the chance of reading and computingwith bad input data substantially reduced, but the bad data can usually be quickly found. Error handling,provided as part of the input speciﬁcations, permits the reentry of bad data, or the continuation of the inputprocess after skippingover the bad data.
+In some cases, Yacc fails to produce a parser when given a set of speciﬁcations. For example, the
+speciﬁcations may be self contradictory, or they may require a more powerful recognition mechanism thanthat available to Yacc. The former cases represent design errors; the latter cases can often be corrected bymaking the lexical analyzer more powerful, or by rewriting some of the grammar rules. While Yacc can-not handle all possible speciﬁcations, its power compares favorably with similar systems; moreover, theconstructions which are difﬁcult for Yacc to handle are also frequently difﬁcult for human beings to han-dle. Some users have reported that the discipline of formulating valid Yacc speciﬁcations for their inputrevealed errors of conception or design early inthe program development.
+The theory underlying Yacc has been described elsewhere.
+2-4Yacc has been extensively used in
+numerous practical applications, including lint,5the Portable C Compiler,6and a system for typesetting
+mathematics.7-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-3
+The next several sections describe the basic process of preparing a Yacc speciﬁcation; Section 1
+describes the preparation of grammar rules, Section 2 the preparation of the user supplied actions associ-ated with these rules, and Section 3 the preparation of lexical analyzers. Section 4 describes the operationof the parser. Section 5 discusses various reasons why Yacc may be unable to produce a parser from aspeciﬁcation, and what to do about it. Section 6 describes a simple mechanism for handling operator pre-cedences in arithmetic expressions. Section 7 discusses error detection and recovery. Section 8 discussesthe operating environment and special features of the parsers Yacc produces. Section 9 gives some sugges-tions which should improve the style and efﬁciency of the speciﬁcations. Section 10 discusses someadvanced topics,and Section 11 gives acknowledgements. Appendix A has a brief example, and AppendixB gives a summary of the Yacc input syntax. Appendix C gives an example using some of the moreadvanced features of Yacc, and, ﬁnally, Appendix D describes mechanisms and syntax no longer activelysupported, butprovided for historical continuitywitholder versions of Yacc.
+1: BasicSpeciﬁcations
+Names refer to either tokens or nonterminal symbols. Yacc requires token names to be declared as
+such. In addition, for reasons discussed in Section 3, it is often desirable to include the lexical analyzer aspart of the speciﬁcation ﬁle; it may be useful to include other programs as well. Thus, every speciﬁcationﬁle consists of three sections: the declarations ,(grammar) rules , andprograms . The sections are
+separated by double percent ‘‘%%’’ marks. (The percent ‘‘%’’ is generally used in Yacc speciﬁcations asan escape character.)
+In other words, a fullspeciﬁcation ﬁlelookslike
+declarations
+%%rules%%programs
+The declaration section may be empty. Moreover, if the programs section is omitted, the second %%
+mark may be omittedalso;thus,the smallestlegal Yacc speciﬁcation is
+%%
+rules
+Blanks, tabs, and newlines are ignored except that they may not appear in names or multi-character
+reserved symbols. Comments may appear wherever a name is legal; they are enclosed in / ∗...∗/, as in C
+and PL/I.
+The rules section ismade up of one or more grammar rules. A grammar rule has the form:
+A : BODY ;
+A represents a nonterminal name, and BODY represents a sequence of zero or more names and literals.
+The colon and the semicolon are Yacc punctuation.
+Names may be of arbitrary length, and may be made up of letters, dot ‘‘.’’, underscore ‘‘ /ul’’, and
+non-initial digits. Upper and lower case letters are distinct. The names used in the body of a grammar rulemay represent tokens or nonterminal symbols.
+A literal consists of a character enclosed in single quotes ‘‘´’’. As in C, the backslash ‘‘\’’ is an
+escape character withinliterals, and all the Cescapes are recognized. Thus-- --
+PS1:15-4 Yacc: Yet Another Compiler-Compiler
+´\n´ newline
+´\r´ return´\´´ singlequote ‘‘´’’´\\´ backslash ‘‘\’’´\t´ tab´\b´ backspace´\f´ form feed´\xxx´‘‘xxx’’inoctal
+Fora number of technical reasons, the
+NULcharacter (´\0´ or 0) shouldnever be used ingrammar rules.
+If there are several grammar rules with the same left hand side, the vertical bar ‘‘ |’’ can be used to
+avoid rewriting the left hand side. In addition, the semicolon at the end of a rule can be dropped before avertical bar. Thus the grammar rules
+A : BCD ;
+A: E F ;A: G ;
+can be given toYacc as
+A : BCD
+|EF
+|G
+;
+It is not necessary that all grammar rules with the same left side appear together in the grammar rules sec-
+tion,although itmakes the inputmuch more readable, and easier tochange.
+If a nonterminal symbolmatches the empty string,thiscan be indicated inthe obviousway:
+empty : ;
+Names representing tokens mustbe declared; thisismostsimplydone by writing
+%token name1 name2 . . .
+in the declarations section. (See Sections 3 , 5, and 6 for much more discussion). Every name not deﬁned
+in the declarations section is assumed to represent a nonterminal symbol. Every nonterminal symbol mustappear on the left side of at least one rule.
+Of all the nonterminal symbols, one, called the start symbol , has particular importance. The parser
+is designed to recognize the start symbol; thus, this symbol represents the largest, most general structuredescribed by the grammar rules. By default, the start symbol is taken to be the left hand side of the ﬁrstgrammar rule in the rules section. It is possible, and in fact desirable, to declare the start symbol explicitlyinthe declarations section usingthe %start keyword:
+%start symbol
+The end of the input to the parser is signaled by a special token, called the endmarker . If the tokens
+up to,butnotincluding,the endmarker form a structure which matches the start symbol,the parser functionreturns to its caller after the endmarker is seen; it acceptsthe input. If the endmarker is seen in any other
+context, itisan error.
+It is the job of the user-supplied lexical analyzer to return the endmarker when appropriate; see sec-
+tion 3, below. Usually the endmarker represents some reasonably obvious I/O status, such as ‘‘end-of-ﬁle’’ or ‘‘end-of-record’’.
+2: Actions
+With each grammar rule, the user may associate actions to be performed each time the rule is recog-
+nized in the input process. These actions may return values, and may obtain the values returned by-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-5
+previous actions. Moreover, the lexical analyzer can return values for tokens, if desired.
+An action is an arbitrary C statement, and as such can do input and output, call subprograms, and
+alter external vectors and variables. An action is speciﬁed by one or more statements, enclosed in curlybraces ‘‘{’’ and ‘‘}’’. Forexample,
+A : ´(´ B ´)´
+{ hello( 1, "abc" ); }
+and
+XXX : YYY ZZZ
+{ printf("a message\n");
+ﬂag =25; }
+are grammar rules withactions.
+To facilitate easy communication between the actions and the parser, the action statements are
+altered slightly. The symbol‘‘dollar sign’’ ‘‘$’’ isused as a signaltoYacc inthiscontext.
+To return a value, the action normally sets the pseudo-variable ‘‘$$’’ to some value. For example,
+an action that does nothingbutreturn the value 1 is
+{ $$ =1; }
+To obtain the values returned by previous actions and the lexical analyzer, the action may use the
+pseudo-variables $1, $2 ,... ,which refer to the values returned by the components of the right side of a
+rule, reading from left toright. Thus, if the rule is
+A : BCD ;
+for example, then $2 has the value returned by C,and $3 the value returned by D.
+As a more concrete example, consider the rule
+expr : ´(´ expr ´)´ ;
+The value returned by thisrule isusuallythe value of the exprinparentheses. Thiscan be indicated by
+expr : ´(´ expr ´)´ { $$ =$2 ; }
+By default, the value of a rule is the value of the ﬁrst element in it ($1). Thus, grammar rules of the
+form
+A: B ;
+frequently need nothave an explicit action.
+In the examples above, all the actions came at the end of their rules. Sometimes, it is desirable to get
+control before a rule is fully parsed. Yacc permits an action to be written in the middle of a rule as well asat the end. Thisrule isassumed toreturn a value, accessible through the usual mechanism by the actions tothe rightof it. In turn, itmay access the values returned by the symbolstoitsleft. Thus, inthe rule
+A: B
+{ $$ =1; }
+C
+{ x =$2; y =$3; }
+;
+the effect istoset xto1, andytothe value returned by C.
+Actions that do not terminate a rule are actually handled by Yacc by manufacturing a new nontermi-
+nal symbol name, and a new rule matching this name to the empty string. The interior action is the actiontriggered off by recognizing this added rule. Yacc actually treats the above example as if it had been writ-ten:-- --
+PS1:15-6 Yacc: Yet Another Compiler-Compiler
+$ACT : / ∗empty∗/
+{ $$ =1; }
+;
+A : B $ACT C
+{ x =$2; y =$3; }
+;
+In many applications, output is not done directly by the actions; rather, a data structure, such as a
+parse tree, is constructed inmemory, and transformations are applied toitbefore outputisgenerated. Parsetrees are particularly easy to construct, given routines to build and maintain the tree structure desired. Forexample, suppose there isa Cfunction node, written sothat the call
+node( L, n1, n2 )
+creates a node with label L, and descendants n1 and n2, and returns the index of the newly created node.
+Then parse tree can be builtby supplyingactions such as:
+expr : expr ´+´ expr
+{ $$ =node( ´+´, $1, $3 ); }
+inthe speciﬁcation.
+The user may deﬁne other variables to be used by the actions. Declarations and deﬁnitions can
+appear in the declarations section, enclosed in the marks ‘‘%{’’ and ‘‘%}’’. These declarations anddeﬁnitions have global scope, so they are known to the action statements and the lexical analyzer. Forexample,
+%{ intvariable =0; %}
+could be placed in the declarations section, making variable accessible to all of the actions. The Yacc
+parser uses onlynames beginning in‘‘yy’’; the user shouldavoid such names.
+In these examples, all the values are integers: a discussion of values of other types will be found in
+Section 10.
+3: Lexical Analysis
+The user must supply a lexical analyzer to read the input stream and communicate tokens (with
+values, if desired) to the parser. The lexical analyzer is an integer-valued function called yylex. The func-
+tionreturns an integer, the token number , representing the kind of token read. If there is a value associated
+withthat token, itshouldbe assigned tothe external variable yylval.
+The parser and the lexical analyzer must agree on these token numbers in order for communication
+between them to take place. The numbers may be chosen by Yacc, or chosen by the user. In either case,the ‘‘# deﬁne’’ mechanism of C is used to allow the lexical analyzer to return these numbers symbolically.For example, suppose that the token name DIGIT has been deﬁned in the declarations section of the Yaccspeciﬁcation ﬁle. The relevant portionof the lexical analyzer mightlooklike:-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-7
+yylex(){
+extern intyylval;intc;...c =getchar();...switch( c ) {
+...
+case ´0´:case ´1´:
+...
+case ´9´:
+yylval =c −´0´;
+return( DIGIT );...}
+...
+The intent is to return a token number of DIGIT, and a value equal to the numerical value of the
+digit. Provided that the lexical analyzer code is placed in the programs section of the speciﬁcation ﬁle, theidentiﬁer DIGIT willbe deﬁned as the token number associated withthe token DIGIT.
+This mechanism leads to clear, easily modiﬁed lexical analyzers; the only pitfall is the need to avoid
+using any token names in the grammar that are reserved or signiﬁcant in C or the parser; for example, theuse of token names iforwhilewill almost certainly cause severe difﬁculties when the lexical analyzer is
+compiled. The token name erroris reserved for error handling, and should not be used naively (see Sec-
+tion7).
+As mentioned above, the token numbers may be chosen by Yacc or by the user. In the default situa-
+tion, the numbers are chosen by Yacc. The default token number for a literal character is the numericalvalue of the character inthe local character set. Other names are assigned token numbers starting at 257.
+To assign a token number to a token (including literals), the ﬁrst appearance of the token name or
+literalin the declarations section can be immediately followed by a nonnegative integer. This integer is
+taken to be the token number of the name or literal. Names and literals not deﬁned by this mechanismretain their default deﬁnition. It isimportantthat all token numbers be distinct.
+For historical reasons, the endmarker must have token number 0 or negative. This token number
+cannot be redeﬁned by the user; thus, all lexical analyzers should be prepared to return 0 or negative as atoken number upon reaching the end of their input.
+A very useful tool for constructing lexical analyzers is the Lexprogram developed by Mike Lesk.
+8
+These lexical analyzers are designed to work in close harmony with Yacc parsers. The speciﬁcations for
+these lexical analyzers use regular expressions instead of grammar rules. Lex can be easily used to pro-duce quite complicated lexical analyzers, but there remain some languages (such as FORTRAN) which donotﬁtany theoretical framework, and whose lexical analyzers mustbe crafted by hand.
+4: How the Parser Works
+Yacc turns the speciﬁcation ﬁle into a C program, which parses the input according to the
+speciﬁcation given. The algorithm used to go from the speciﬁcation to the parser is complex, and will notbe discussed here (see the references for more information). The parser itself, however, is relatively sim-
+ple, and understanding how it works, while not strictly necessary, will nevertheless make treatment of errorrecovery and ambiguitiesmuch more comprehensible.
+The parser produced by Yacc consists of a ﬁnite state machine with a stack. The parser is also capa-
+ble of reading and remembering the next input token (called the lookahead token). The current state is
+always the one on the top of the stack. The states of the ﬁnite state machine are given small integer labels;initially,the machine isinstate 0, the stack contains onlystate 0, and no lookahead token has been read.-- --
+PS1:15-8 Yacc: Yet Another Compiler-Compiler
+The machine has only four actions available to it, called shift,reduce,accept, anderror. A move
+of the parser isdone as follows:
+1. Based on its current state, the parser decides whether it needs a lookahead token to decide what
+action shouldbe done; if itneeds one, and does nothave one, itcalls yylextoobtain the next token.
+2. Using the current state, and the lookahead token if needed, the parser decides on its next action, and
+carries it out. Thismay result instates being pushed ontothe stack, or popped off of the stack, and inthe lookahead token being processed or left alone.
+Theshiftaction is the most common action the parser takes. Whenever a shift action is taken, there
+isalways a lookahead token. Forexample, instate 56 there may be an action:
+IF shift34
+which says, in state 56, if the lookahead token is IF, the current state (56) is pushed down on the stack, and
+state 34 becomes the current state (on the topof the stack). The lookahead token iscleared.
+Thereduceaction keeps the stack from growing without bounds. Reduce actions are appropriate
+when the parser has seen the right hand side of a grammar rule, and isprepared toannounce that ithas seenan instance of the rule, replacing the right hand side by the left hand side. It may be necessary to consultthe lookahead token to decide whether to reduce, but usually it is not; in fact, the default action(represented by a ‘‘.’’) isoften a reduce action.
+Reduce actions are associated with individual grammar rules. Grammar rules are also given small
+integer numbers, leading tosome confusion. The action
+.reduce 18
+refers togrammar rule 18, while the action
+IF shift34
+refers tostate34.
+Supposethe rule being reduced is
+A:xyz ;
+The reduce action depends on the left hand symbol (A in this case), and the number of symbols on the right
+hand side (three in this case). To reduce, ﬁrst pop off the top three states from the stack (In general, thenumber of states popped equals the number of symbols on the right side of the rule). In effect, these stateswere the ones put on the stack while recognizing x,y, andz, and no longer serve any useful purpose.
+After popping these states, a state is uncovered which was the state the parser was in before beginning toprocess the rule. Using this uncovered state, and the symbol on the left side of the rule, perform what is ineffect a shift of A. A new state is obtained, pushed onto the stack, and parsing continues. There aresigniﬁcant differences between the processing of the left hand symbol and an ordinary shift of a token,however, so this action is called a gotoaction. In particular, the lookahead token is cleared by a shift, and
+isnotaffected by a goto. In any case, the uncovered state contains an entry such as:
+A goto20
+causing state 20 tobe pushed ontothe stack, and become the current state.
+In effect, the reduce action ‘‘turns back the clock’’ in the parse, popping the states off the stack to go
+back to the state where the right hand side of the rule was ﬁrst seen. The parser then behaves as if it hadseen the left side at that time. If the right hand side of the rule is empty, no states are popped off of thestack: the uncovered state isinfact the current state.
+The reduce action isalso importantinthe treatment of user-supplied actions and values. When a rule
+is reduced, the code supplied with the rule is executed before the stack is adjusted. In addition to the stackholding the states, another stack, running in parallel with it, holds the values returned from the lexicalanalyzer and the actions. When a shift takes place, the external variable yylvalis copied onto the value
+stack. After the return from the user code, the reduction is carried out. When the gotoaction is done, the
+external variable yyvalis copied onto the value stack. The pseudo-variables $1, $2, etc., refer to the value-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-9
+stack.
+The other two parser actions are conceptually much simpler. The acceptaction indicates that the
+entire input has been seen and that it matches the speciﬁcation. This action appears only when the looka-head token is the endmarker, and indicates that the parser has successfully done its job. The erroraction,
+on the other hand, represents a place where the parser can no longer continue parsing according to thespeciﬁcation. The input tokens it has seen, together with the lookahead token, cannot be followed by any-thing that would result in a legal input. The parser reports an error, and attempts to recover the situationand resume parsing: the error recovery (as opposed tothe detection of error) willbe covered inSection 7.
+It istimefor an example! Consider the speciﬁcation
+%token DING DONG DELL
+%%rhyme : sound place
+;
+sound: DING DONG
+;
+place : DELL
+;
+When Yacc is invoked with the −voption, a ﬁle called y.outputis produced, with a human-readable
+description of the parser. The y.output ﬁle corresponding to the above grammar (with some statistics
+stripped off the end) is:-- --
+PS1:15-10 Yacc: Yet Another Compiler-Compiler
+state 0
+$accept : /ulrhyme $end
+DING shift3
+. error
+rhyme goto1
+sound goto2
+state 1
+$accept : rhyme /ul$end
+$end accept
+. error
+state 2
+rhyme : sound /ulplace
+DELL shift5
+. error
+place goto4
+state 3
+sound : DING /ulDONG
+DONG shift6
+. error
+state 4
+rhyme : sound place /ul(1)
+. reduce 1
+state 5
+place : DELL /ul(3)
+. reduce 3
+state 6
+sound : DING DONG /ul(2)
+. reduce 2
+Notice that, in addition to the actions for each state, there is a description of the parsing rules being pro-
+cessed in each state. The /ulcharacter is used to indicate what has been seen, and what is yet to come, in
+each rule. Supposethe inputis
+DING DONG DELL
+It isinstructive tofollow the steps of the parser while processing thisinput.
+Initially, the current state is state 0. The parser needs to refer to the input in order to decide between
+the actions available in state 0, so the ﬁrst token, DING, is read, becoming the lookahead token. The
+action in state 0 on DINGis is ‘‘shift 3’’, so state 3 is pushed onto the stack, and the lookahead token is
+cleared. State 3 becomes the current state. The next token, DONG, is read, becoming the lookahead-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-11
+token. The action in state 3 on the token DONGis ‘‘shift 6’’, so state 6 is pushed onto the stack, and the
+lookahead is cleared. The stack now contains 0, 3, and 6. In state 6, without even consulting the looka-head, the parser reduces by rule 2.
+sound : DING DONG
+Thisrule has two symbolson the right hand side, so two states, 6 and 3, are popped off of the stack, uncov-
+ering state 0. Consultingthe description of state 0, lookingfor a gotoon sound,
+soundgoto2
+isobtained; thusstate 2 ispushed ontothe stack, becoming the current state.
+In state 2, the next token, DELL, must be read. The action is ‘‘shift 5’’, so state 5 is pushed onto the
+stack, which now has 0, 2, and 5 on it, and the lookahead token is cleared. In state 5, the only action is toreduce by rule 3. This has one symbol on the right hand side, so one state, 5, is popped off, and state 2 isuncovered. The goto in state 2 on place, the left side of rule 3, isstate 4. Now, the stack contains 0, 2, and
+4. In state 4, the only action is to reduce by rule 1. There are two symbols on the right, so the top twostates are popped off, uncovering state 0 again. In state 0, there is a goto on rhymecausing the parser to
+enter state 1. In state 1, the input is read; the endmarker is obtained, indicated by ‘‘$end’’ in the y.output
+ﬁle. The action instate 1 when the endmarker isseen istoaccept, successfully ending the parse.
+The reader is urged to consider how the parser works when confronted with such incorrect strings as
+DING DONG DONG ,DING DONG ,DING DONG DELL DELL , etc. A few minutes spend with this and
+other simpleexamples willprobably be repaid when problems arise inmore complicated contexts.
+5: AmbiguityandConﬂicts
+A set of grammar rules is ambiguous if there is some input string that can be structured in two or
+more different ways. Forexample, the grammar rule
+expr : expr ´ −´ expr
+is a natural way of expressing the fact that one way of forming an arithmetic expression is to put two other
+expressions together with a minus sign between them. Unfortunately, this grammar rule does not com-pletely specify the way that all complex inputsshouldbe structured. Forexample, if the inputis
+expr−expr−expr
+the rule allows thisinputtobe structured as either
+( expr−expr )−expr
+or as
+expr−( expr−expr )
+(The ﬁrstiscalled leftassociation , the second rightassociation ).
+Yacc detects such ambiguities when it is attempting to build the parser. It is instructive to consider
+the problem that confronts the parser when itisgiven an inputsuch as
+expr−expr−expr
+When the parser has read the second expr, the inputthat ithas seen:
+expr−expr
+matches the right side of the grammar rule above. The parser could reducethe input by applying this rule;
+after applying the rule; the input is reduced to expr(the left side of the rule). The parser would then read
+the ﬁnalpart of the input:
+−expr
+and again reduce. The effect of thisistotake the left associative interpretation.-- --
+PS1:15-12 Yacc: Yet Another Compiler-Compiler
+Alternatively, when the parser has seen
+expr−expr
+itcould defer the immediate application of the rule, and continue reading the inputuntilithad seen
+expr−expr−expr
+It could then apply the rule tothe rightmostthree symbols,reducing them to exprand leaving
+expr−expr
+Now the rule can be reduced once more; the effect is to take the right associative interpretation. Thus, hav-
+ingread
+expr−expr
+the parser can do two legal things,a shiftor a reduction, and has no way of deciding between them. This is
+called ashift / reduce conﬂict . It may also happen that the parser has a choice of two legal reductions; this
+iscalled a reduce /reduce conﬂict . Note that there are never any ‘‘Shift/shift’’ conﬂicts.
+When there are shift/reduce or reduce/reduce conﬂicts, Yacc still produces a parser. It does this by
+selecting one of the valid steps wherever it has a choice. A rule describing which choice to make in agiven situationiscalled a disambiguatingrule .
+Yacc invokes two disambiguatingrules by default:
+1. In a shift/reduce conﬂict, the default istodo the shift.2. In a reduce/reduce conﬂict, the default is to reduce by the earliergrammar rule (in the input
+sequence).
+Rule 1 implies that reductions are deferred whenever there is a choice, in favor of shifts. Rule 2
+gives the user rather crude control over the behavior of the parser in this situation, but reduce/reduce
+conﬂictsshouldbe avoided whenever possible.
+Conﬂicts may arise because of mistakes in input or logic, or because the grammar rules, while con-
+sistent, require a more complex parser than Yacc can construct. The use of actions within rules can alsocause conﬂicts, if the action must be done before the parser can be sure which rule is being recognized. Inthese cases, the application of disambiguating rules is inappropriate, and leads to an incorrect parser. Forthis reason, Yacc always reports the number of shift/reduce and reduce/reduce conﬂicts resolved by Rule 1
+and Rule2.
+In general, whenever itispossibletoapply disambiguatingrules to produce a correct parser, it is also
+possible to rewrite the grammar rules so that the same inputs are read but there are no conﬂicts. For thisreason, most previous parser generators have considered conﬂicts to be fatal errors. Our experience hassuggested that this rewriting is somewhat unnatural, and produces slower parsers; thus, Yacc will produceparsers even inthe presence of conﬂicts.
+As an example of the power of disambiguating rules, consider a fragment from a programming
+language involvingan ‘‘if-then-else’’construction:
+stat : IF ´(´ cond ´)´ stat
+|IF ´(´ cond ´)´ stat ELSE stat
+;
+In these rules, IFandELSEare tokens, condis a nonterminal symbol describing conditional (logical)
+expressions, and statis a nonterminal symbol describing statements. The ﬁrst rule will be called the
+simple-ifrule, and the second the if-elserule.
+These two rules form an ambiguousconstruction, since inputof the form
+IF ( C1 ) IF ( C2 ) S1 ELSE S2
+can be structured according tothese rules intwo ways:-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-13
+IF ( C1 ) {
+IF ( C2 ) S1}
+ELSE S2
+or
+IF ( C1 ) {
+IF ( C2 ) S1ELSE S2}
+The second interpretation is the one given in most programming languages having this construct. Each
+ELSEisassociated withthe lastpreceding ‘‘un- ELSE’d’’IF. In thisexample, consider the situationwhere
+the parser has seen
+IF ( C1 ) IF ( C2 ) S1
+and islookingat the ELSE. It can immediately reduce by the simple-if rule toget
+IF ( C1 ) stat
+and then read the remaining input,
+ELSE S2
+and reduce
+IF ( C1 ) stat ELSE S2
+by the if-else rule. Thisleads tothe ﬁrstof the above groupings of the input.
+On the other hand, the ELSEmay be shifted, S2read, and then the righthand portionof
+IF ( C1 ) IF ( C2 ) S1 ELSE S2
+can be reduced by the if-else rule toget
+IF ( C1 ) stat
+which can be reduced by the simple-if rule. This leads to the second of the above groupings of the input,
+which isusuallydesired.
+Once again the parser can do two valid things −there is a shift/reduce conﬂict. The application of
+disambiguatingrule 1 tellsthe parser toshiftinthiscase, which leads tothe desired grouping.
+This shift/reduce conﬂict arises only when there is a particular current input symbol, ELSE, and par-
+ticular inputsalready seen, such as
+IF ( C1 ) IF ( C2 ) S1
+In general, there may be many conﬂicts, and each one will be associated with an input symbol and a set of
+previously read inputs. The previously read inputsare characterizedbythe state of the parser.
+The conﬂict messages of Yacc are best understood by examining the verbose ( −v) option output ﬁle.
+Forexample, the outputcorresponding tothe above conﬂict state mightbe:-- --
+PS1:15-14 Yacc: Yet Another Compiler-Compiler
+23:shift/reduce conﬂict (shift 45, reduce 18) on ELSE
+state 23
+stat : IF ( cond ) stat /ul(18)
+stat : IF ( cond ) stat /ulELSE stat
+ELSE shift45
+. reduce 18
+The ﬁrst line describes the conﬂict, giving the state and the input symbol. The ordinary state description
+follows, giving the grammar rules active in the state, and the parser actions. Recall that the underlinemarks the portion of the grammar rules which has been seen. Thus in the example, in state 23 the parserhas seen inputcorresponding to
+IF ( cond ) stat
+and the two grammar rules shown are active at this time. The parser can do two possible things. If the
+input symbol is ELSE, it is possible to shift into state 45. State 45 will have, as part of its description, the
+line
+stat : IF ( cond ) stat ELSE /ulstat
+since the ELSEwill have been shifted in this state. Back in state 23, the alternative action, described by
+‘‘.’’, is to be done if the input symbol is not mentioned explicitly in the above actions; thus, in this case, if
+the inputsymbolisnot ELSE, the parser reduces by grammar rule 18:
+stat : IF ´(´ cond ´)´ stat
+Once again, notice that the numbers following ‘‘shift’’ commands refer to other states, while the numbers
+following ‘‘reduce’’ commands refer to grammar rule numbers. In the y.outputﬁle, the rule numbers are
+printed after those rules which can be reduced. In most one states, there will be at most reduce action pos-sible in the state, and this will be the default command. The user who encounters unexpected shift/reduceconﬂicts will probably want to look at the verbose output to decide whether the default actions areappropriate. In really tough cases, the user might need to know more about the behavior and constructionof the parser than can be covered here. In thiscase, one of thetheoretical references
+2-4might be consulted;
+the services of a local guru mightalso be appropriate.
+6: Precedence
+There is one common situation where the rules given above for resolving conﬂicts are not sufﬁcient;
+this is in the parsing of arithmetic expressions. Most of the commonly used constructions for arithmeticexpressions can be naturally described by the notion of precedence levels for operators, together with
+information about left or right associativity. It turns out that ambiguous grammars with appropriate disam-biguating rules can be used to create parsers that are faster and easier to write than parsers constructedfrom unambiguousgrammars. The basic notionistowrite grammar rules of the form
+expr : expr OP expr
+and
+expr : UNARY expr
+for all binary and unary operators desired. This creates a very ambiguous grammar, with many parsing
+conﬂicts. As disambiguating rules, the user speciﬁes the precedence, or binding strength, of all the opera-
+tors, and the associativity of the binary operators. This information is sufﬁcient to allow Yacc to resolvethe parsing conﬂicts in accordance with these rules, and construct a parser that realizes the desired pre-
+cedences and associativities.-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-15
+The precedences and associativities are attached to tokens in the declarations section. This is done
+by a series of lines beginning with a Yacc keyword: %left, %right, or %nonassoc, followed by a list oftokens. All of the tokens on the same line are assumed to have the same precedence level and associa-
+tivity;the linesare listedinorder of increasing precedenceor bindingstrength. Thus,
+%left ´+´ ´ −´
+%left ´∗´ ´/´
+describes the precedenceand associativity of the four arithmetic operators. Plusand minus are left associa-
+tive, and have lower precedence than star and slash, which are also left associative. The keyword %right is
+used to describe right associative operators, and the keyword %nonassoc is used to describe operators, likethe operator .LT. inFortran, that may notassociate withthemselves; thus,
+A .LT. B .LT. C
+is illegal in Fortran, and such an operator would be described with the keyword %nonassoc in Yacc. As an
+example of the behavior of these declarations, the description
+%right ´=´
+%left ´+´ ´ −´
+%left ´∗´ ´/´
+%%expr : expr ´=´ expr
+|expr ´+´ expr
+|expr ´−´ expr
+|expr ´∗´ expr
+|expr ´/´ expr
+|NAME
+;
+mightbe used tostructure the input
+a=b=c ∗d−e−f∗g
+as follows:
+a =( b =( ((c ∗d)−e)−(f∗g )))
+When thismechanism isused, unary operators must,in general, be given a precedence. Sometimesa unary
+operator and a binary operator have the same symbolic representation, but different precedences. An
+example is unary and binary ´ −´; unary minus may be given the same strength as multiplication, or even
+higher, while binary minus has a lower strength than multiplication. The keyword, %prec, changes the pre-cedence level associated with a particular grammar rule. %prec appears immediately after the body of thegrammar rule, before the action or closing semicolon, and is followed by a token name or literal. It causesthe precedence of the grammar rule to become that of the following token name or literal. For example, to
+make unary minushave the same precedenceas multiplicationthe rules mightresemble:-- --
+PS1:15-16 Yacc: Yet Another Compiler-Compiler
+%left ´+´ ´ −´
+%left ´∗´ ´/´
+%%expr : expr ´+´ expr
+|expr ´−´ expr
+|expr ´∗´ expr
+|expr ´/´ expr
+|´−´ expr %prec ´ ∗´
+|NAME
+;
+A token declared by %left, %right, and %nonassoc need not be, but may be, declared by %token as
+well.
+The precedences and associativities are used by Yacc to resolve parsing conﬂicts; they give rise to
+disambiguatingrules. Formally,the rules work as follows:
+1. The precedencesand associativities are recorded for those tokens and literals that have them.
+2. Aprecedenceand associativity is associated with each grammar rule; it is theprecedence and associ-
+ativity of the last token or literal in the body of the rule. If the %prec construction is used, it over-rides this default. Some grammar rules may have no precedence and associativity associated with
+them.
+3. When there is a reduce/reduce conﬂict, or there is a shift/reduce conﬂict and either the input symbol
+or the grammar rule has no precedence and associativity, then the two disambiguating rules given at
+the beginning of the section are used, and the conﬂictsare reported.
+4. If there is a shift/reduce conﬂict, and both the grammar rule and the input character have precedence
+and associativity associated with them, then the conﬂict is resolved in favor of the action (shift orreduce) associated with the higher precedence. If the precedences are the same, then the associa-
+tivity is used; left associative implies reduce, right associative implies shift, and nonassociatingimplieserror.
+Conﬂicts resolved by precedence are not counted in the number of shift/reduce and reduce/reduce
+conﬂicts reported by Yacc. This means that mistakes in the speciﬁcation of precedences may disguise
+errors inthe inputgrammar; it is a good idea to be sparing with precedences, and use them in an essentially
+‘‘cookbook’’ fashion, until some experience has been gained. The y.outputﬁle is very useful in deciding
+whether the parser isactually doingwhat was intended.
+7: Error Handling
+Error handling is an extremely difﬁcult area, and many of the problems are semantic ones. When an
+error is found, for example, it may be necessary to reclaim parse tree storage, delete or alter symbol tableentries, and, typically, set switches toavoid generating any further output.
+It is seldom acceptable to stop all processing when an error is found; it is more useful to continue
+scanning the input to ﬁnd further syntax errors. This leads to the problem of getting the parser ‘‘restarted’’
+after an error. A general class of algorithms to do this involves discarding a number of tokens from theinputstring,and attemptingtoadjustthe parser sothat inputcan continue.
+To allow the user some control over this process, Yacc provides a simple, but reasonably general,
+feature. The token name ‘‘error’’ is reserved for error handling. This name can be used in grammar rules;
+in effect, it suggests places where errors are expected, and recovery might take place. The parser pops itsstack until it enters a state where the token ‘‘error’’ is legal. It then behaves as if the token ‘‘error’’ were
+the current lookahead token, and performs the action encountered. The lookahead token is then reset to thetoken that caused the error. If no special error rules have been speciﬁed, the processing haltswhen an errorisdetected.-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-17
+In order to prevent a cascade of error messages, the parser, after detecting an error, remains in error
+state until three tokens have been successfully read and shifted. If an error is detected when the parser isalready inerror state, no message isgiven, and the inputtoken isquietlydeleted.
+As an example, a rule of the form
+stat : error
+would, in effect, mean that on a syntax error the parser would attempt to skip over the statement in which
+the error was seen. More precisely, the parser will scan ahead, looking for three tokens that might legallyfollow a statement, and start processing at the ﬁrst of these; if the beginnings of statements are notsufﬁciently distinctive, it may make a false start inthe middleof a statement, and end up reporting a seconderror where there isinfact no error.
+Actions may be used withthese special error rules. These actions might attempt to reinitialize tables,
+reclaim symboltable space, etc.
+Error rules such as the above are very general, but difﬁcult to control. Somewhat easier are rules
+such as
+stat : error ´;´
+Here, when there is an error, the parser attempts to skip over the statement, but will do so by skipping to
+the next ´;´. All tokens after the error and before the next ´;´ cannot be shifted, and are discarded. Whenthe ´;´ isseen, thisrule willbe reduced, and any ‘‘cleanup’’ action associated withitperformed.
+Another form of error rule arises in interactive applications, where it may be desirable to permit a
+line tobe reentered after an error. A possibleerror rule mightbe
+input : error ´\n´ { printf( "Reenter lastline:" ); } input
+{ $$ = $4; }
+There is one potential difﬁculty with this approach; the parser must correctly process three input tokens
+before it admits that it has correctly resynchronized after the error. If the reentered line contains an error inthe ﬁrst two tokens, the parser deletes the offending tokens, and gives no message; this is clearly unaccept-able. For this reason, there is a mechanism that can be used to force the parser to believe that an error hasbeen fullyrecovered from. The statement
+yyerrok ;
+inan action resets the parser toitsnormal mode. The lastexample isbetter written
+input : error ´\n´
+{ yyerrok;
+printf( "Reenter lastline:" ); }
+input
+{ $$ = $4; }
+;
+As mentioned above, the token seen immediately after the ‘‘error’’ symbol is the input token at
+which the error was discovered. Sometimes, this is inappropriate; for example, an error recovery actionmight take upon itself the job of ﬁnding the correct place to resume input. In this case, the previous looka-head token mustbe cleared. The statement
+yyclearin ;
+in an action will have this effect. For example, suppose the action after error were to call some sophisti-
+cated resynchronization routine, supplied by the user, that attempted to advance the input to the beginningof the next valid statement. After this routine was called, the next token returned by yylex would presum-ably be the ﬁrst token in a legal statement; the old, illegal token mustbe discarded, and the error state reset.Thiscould be done by a rule like-- --
+PS1:15-18 Yacc: Yet Another Compiler-Compiler
+stat : error
+{ resynch();
+yyerrok ;yyclearin ; }
+;
+These mechanisms are admittedly crude, but do allow for a simple, fairly effective recovery of the
+parser from many errors; moreover, the user can get control to deal with the error actions required by otherportionsof the program.
+8: TheYacc Environment
+When the user inputs a speciﬁcation to Yacc, the output is a ﬁle of C programs, called y.tab.con
+most systems (due to local ﬁle system conventions, the names may differ from installation to installation).The function produced by Yacc is called yyparse; it is an integer valued function. When it is called, it in
+turn repeatedly calls yylex, the lexical analyzer supplied by the user (see Section 3) to obtain input tokens.
+Eventually, either an error is detected, in which case (if no error recovery is possible) yyparsereturns the
+value 1, or the lexical analyzer returns the endmarker token and the parser accepts. In this case, yyparse
+returns the value 0.
+The user must provide a certain amount of environment for this parser in order to obtain a working
+program. For example, as with every C program, a program called mainmust be deﬁned, that eventually
+callsyyparse. In addition,a routine called yyerrorprintsa message when a syntax error isdetected.
+These two routines must be supplied in one form or another by the user. To ease the initial effort of
+using Yacc, a library has been provided with default versions of mainandyyerror. The name of this
+library is system dependent; on many systems the library is accessed by a −lyargument to the loader. To
+show the trivialityof these default programs, the source isgiven below:
+main(){
+return( yyparse() );}
+and
+# include <stdio.h>
+yyerror(s) char ∗s;{
+fprintf( stderr, "%s\n", s);}
+The argument to yyerroris a string containing an error message, usually the string ‘‘syntax error’’. The
+average application will want to do better than this. Ordinarily, the program should keep track of the inputline number, and printit along with the message when a syntax error is detected. The external integer vari-ableyycharcontains the lookahead token number at the time the error was detected; this may be of some
+interest in giving better diagnostics. Since the mainprogram is probably supplied by the user (to read
+arguments, etc.) the Yacc library isuseful onlyinsmallprojects, or inthe earliest stages of larger ones.
+The external integer variable yydebug is normally set to 0. If it is set to a nonzero value, the parser
+will output a verbose description of its actions, including a discussion of which input symbols have beenread, and what the parser actions are. Depending on the operating environment, it may be possible to setthisvariable by usinga debugging system.
+9: Hintsfor Preparing Speciﬁcations
+This section contains miscellaneous hints on preparing efﬁcient, easy to change, and clear
+speciﬁcations. The individualsubsections are more or less independent.-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-19
+InputStyle
+It is difﬁcult to provide rules with substantial actions and still have a readable speciﬁcation ﬁle. The
+followingstylehintsowe much toBrian Kernighan.
+a. Use all capital letters for token names, all lower case letters for nonterminal names. This rule comes
+under the heading of ‘‘knowing who toblame when thingsgo wrong.’’
+b. Put grammar rules and actions on separate lines. This allows either to be changed without an
+automatic need tochange the other.
+c. Put all rules with the same left hand side together. Put the left hand side in only once, and let all fol-
+lowingrules begin witha vertical bar.
+d. Put a semicolon only after the last rule with a given left hand side, and put the semicolon on a
+separate line. Thisallows new rules tobe easily added.
+e. Indent rule bodies by two tab stops,and action bodies by three tab stops.
+The example in Appendix A is written following this style, as are the examples in the text of this
+paper (where space permits). The user must make up his own mind about these stylisticquestions;the cen-tral problem, however, istomake the rules visiblethrough the morass of action code.
+Left Recursion
+The algorithmused by the Yacc parser encourages socalled ‘‘left recursive’’ grammar rules: rules of
+the form
+name : name rest_of_rule ;
+These rules frequently arise when writingspeciﬁcations of sequences and lists:
+list : item
+|list ´,´ item
+;
+and
+seq : item
+|seq item
+;
+In each of these cases, the ﬁrst rule will be reduced for the ﬁrst item only, and the second rule will be
+reduced for the second and all succeeding items.
+With rightrecursive rules, such as
+seq : item
+|item seq
+;
+the parser would be a bit bigger, and the items would be seen, and reduced, from right to left. More seri-
+ously, an internal stack in the parser would be in danger of overﬂowing if a very long sequence were read.Thus, the user shoulduse left recursion wherever reasonable.
+It is worth considering whether a sequence with zero elements has any meaning, and if so, consider
+writingthe sequence speciﬁcation withan empty rule:
+seq : / ∗empty∗/
+|seq item
+;
+Once again, the ﬁrstrule would always be reduced exactly once, before the ﬁrstitemwas read, and then the
+second rule would be reduced once for each item read. Permitting empty sequences often leads toincreased generality. However, conﬂicts might arise if Yacc is asked to decide which empty sequence ithas seen, when ithasn’t seen enough toknow!-- --
+PS1:15-20 Yacc: Yet Another Compiler-Compiler
+Lexical Tie-ins
+Some lexical decisions depend on context. For example, the lexical analyzer might want to delete
+blanks normally, but not within quoted strings. Or names might be entered into a symbol table in declara-tions,butnotinexpressions.
+One way of handling this situation is to create a global ﬂag that is examined by the lexical analyzer,
+and set by actions. For example, suppose a program consists of 0 or more declarations, followed by 0 ormore statements. Consider:
+%{
+intdﬂag;
+%}
+... other declarations ...
+%%prog : decls stats
+;
+decls : / ∗empty∗/
+{ dﬂag =1; }
+|decls declaration
+;
+stats : / ∗empty∗/
+{ dﬂag =0; }
+|stats statement
+;
+... other rules ...
+The ﬂagdﬂagisnow 0 when reading statements, and 1 when reading declarations, except forthe ﬁrsttoken
+in the ﬁrst statement. This token must be seen by the parser before it can tell that the declaration section
+has ended and the statements have begun. In many cases, this single token exception does not affect thelexical scan.
+This kind of ‘‘backdoor’’ approach can be elaborated to a noxious degree. Nevertheless, it
+represents a way of doingsome thingsthat are difﬁcult,if notimpossible,todo otherwise.
+Reserved Words
+Some programming languages permit the user to use words like ‘‘if’’, which are normally reserved,
+as label or variable names, provided that such use does not conﬂict with the legal use of these names in theprogramming language. This is extremely hard to do in the framework of Yacc; it is difﬁcult to pass infor-mation to the lexical analyzer telling it ‘‘this instance of ‘if’ is a keyword, and that instance is a variable’’.The user can make a stab at it,usingthe mechanism described inthe lastsubsection, butitisdifﬁcult.
+A number of ways of making this easier are under advisement. Until then, it is better that the key-
+words be reserved ; that is, be forbidden for use as variable names. There are powerful stylisticreasons for
+preferring this,anyway.
+10: AdvancedTopics
+Thissection discusses a number of advanced features of Yacc.
+SimulatingError andAccept inActions
+The parsing actions of error and accept can be simulated in an action by use of macros YYACCEPT
+and YYERROR. YYACCEPT causes yyparseto return the value 0; YYERROR causes the parser to-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-21
+behave as if the current input symbol had been a syntax error; yyerroris called, and error recovery takes
+place. These mechanisms can be used to simulate parsers with multiple endmarkers or context-sensitivesyntax checking.
+Accessing ValuesinEnclosingRules.
+An action may refer to values returned by actions to the left of the current rule. The mechanism is
+simply the same as with ordinary actions, a dollar sign followed by a digit, but in this case the digit may be0 or negative. Consider
+sent : adj noun verb adj noun
+{look atthe sentence ... }
+;
+adj : THE { $$ =THE; }
+|YOUNG { $$ =YOUNG; }
+...;
+noun : DOG
+{ $$ =DOG; }
+|CRONE
+{ if( $0 ==YOUNG ){
+printf( "what?\n" );}
+$$ =CRONE;}
+;...
+In the action following the word CRONE, a check is made that the preceding token shifted was not
+YOUNG. Obviously, this is only possible when a great deal is known about what might precede the sym-bolnounin the input. There is also a distinctly unstructured ﬂavor about this. Nevertheless, at times this
+mechanism will save a great deal of trouble, especially when a few combinations are to be excluded froman otherwise regular structure.
+Supportfor Arbitrary Value Types
+By default, the values returned by actions and the lexical analyzer are integers. Yacc can also sup-
+port values of other types, including structures. In addition, Yacc keeps track of the types, and insertsappropriate union member names so that the resulting parser will be strictly type checked. The Yacc valuestack (see Section 4) is declared to be a unionof the various types of values desired. The user declares the
+union, and associates union member names to each token and nonterminal symbol having a value. Whenthe value is referenced through a $$ or $n construction, Yacc will automatically insert the appropriate
+union name, so that no unwanted conversions will take place. In addition, type checking commands suchasLint
+5willbe far more silent.
+There are three mechanisms used to provide for this typing. First, there is a way of deﬁning the
+union; this must be done by the user since other programs, notably the lexical analyzer, must know aboutthe union member names. Second, there is a way of associating a union member name with tokens andnonterminals. Finally, there is a mechanism for describing the type of those few values where Yacc cannoteasily determine the type.
+To declare the union,the user includes inthe declaration section:
+%union {
+body of union...}-- --
+PS1:15-22 Yacc: Yet Another Compiler-Compiler
+This declares the Yacc value stack, and the external variables yylvalandyyval, to have type equal to this
+union. If Yacc was invoked with the −doption, the uniondeclaration iscopied ontothe y.tab.hﬁle. Alter-
+natively, the union may be declared in a header ﬁle, and a typedef used to deﬁne the variable YYSTYPE torepresent thisunion. Thus, the header ﬁlemightalso have said:
+typedef union{
+body of union...}YYSTYPE;
+The header ﬁlemustbe included inthe declarations section, by use of %{and %}.
+Once YYSTYPE is deﬁned, the union member names must be associated with the various terminal
+and nonterminal names. The construction
+<name >
+is used to indicate a union member name. If this follows one of the keywords %token, %left, %right, and
+%nonassoc, the unionmember name isassociated withthe tokens listed. Thus, saying
+%left <optype> ´+´ ´ −´
+will cause any reference to values returned by these two tokens to be tagged with the union member name
+optype. Another keyword, %type, is used similarly to associate union member names with nonterminals.
+Thus, one mightsay
+%type <nodetype> expr stat
+There remain a couple of cases where these mechanisms are insufﬁcient. If there is an action within
+a rule, the value returned by this action has no a prioritype. Similarly, reference to left context values
+(such as $0 −see the previous subsection ) leaves Yacc with no easy way of knowing the type. In this
+case, a type can be imposedon thereferenceby inserting a unionmember name, between <and >,immedi-
+ately after the ﬁrst$. An example of thisusage is
+rule : aaa { $<intval>$ = 3; }bbb
+{ fun( $<intval>2,$<other>0 ); }
+;
+Thissyntax has littletorecommend it,butthe situationarises rarely.
+A sample speciﬁcation is given in Appendix C. The facilities in this subsection are not triggered
+until they are used: in particular, the use of %type will turn on these mechanisms. When they are used,there is a fairly strict level of checking. For example, use of $n or $$ to refer to something with no deﬁnedtype is diagnosed. If these facilities are not triggered, the Yacc value stack is used to hold int’s, as was
+true historically.
+11: Acknowledgements
+Yacc owes much to a most stimulating collection of users, who have goaded me beyond my inclina-
+tion, and frequently beyond my ability, in their endless search for ‘‘one more feature’’. Their irritatingunwillingness to learn how to do things my way has usually led to my doing things their way; most of thetime, they have been right. B. W. Kernighan, P. J. Plauger, S. I. Feldman, C. Imagna, M. E. Lesk, and A.Snyder will recognize some of their ideas in the current version of Yacc. C. B. Haley contributed to theerror recovery algorithm. D. M. Ritchie, B. W. Kernighan, and M. O. Harris helped translate this docu-ment into English. Al Aho also deserves special credit for bringing the mountain to Mohammed, and otherfavors.-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-23
+References
+1. B. W. Kernighan and D. M. Ritchie, The C Programming Language, Prentice-Hall, Englewood
+Cliffs,New Jersey, 1978.
+2. A. V. Aho and S.C.Johnson,‘‘LR Parsing,’’ Comp.Surveys , vol.6, no. 2, pp. 99-124, June 1974.
+3. A. V. Aho, S. C. Johnson, and J. D. Ullman, ‘‘Deterministic Parsing of Ambiguous Grammars,’’
+Comm. Assoc. Comp.Mach. , vol.18, no. 8, pp. 441-452, August1975.
+4. A. V. Aho and J.D. Ullman, Principles ofCompilerDesign, Addison-Wesley, Reading, Mass., 1977.
+5. S. C. Johnson, ‘‘Lint, a C Program Checker,’’ Comp. Sci. Tech. Rep. No. 65, 1978. updated version
+TM 78-1273-3
+6. S. C. Johnson, ‘‘A Portable Compiler: Theory and Practice,’’ Proc. 5th ACM Symp. on Principles of
+Programming Languages , pp. 97-104, January 1978.
+7. B. W. Kernighan and L. L. Cherry, ‘‘A System for Typesetting Mathematics,’’ Comm. Assoc. Comp.
+Mach., vol.18, pp. 151-157, BellLaboratories, Murray Hill,New Jersey, March 1975.
+8. M. E. Lesk, ‘‘Lex — A Lexical Analyzer Generator,’’ Comp. Sci. Tech. Rep. No. 39, Bell Labora-
+tories, Murray Hill,New Jersey, October 1975.-- --
+PS1:15-24 Yacc: Yet Another Compiler-Compiler
+AppendixA: A SimpleExample
+This example gives the complete Yacc speciﬁcation for a small desk calculator; the desk calculator
+has 26 registers, labeled ‘‘a’’ through ‘‘z’’, and accepts arithmetic expressions made up of the operators +,−,∗, /, % (mod operator), & (bitwise and), |(bitwise or), and assignment. If an expression at the top level
+is an assignment, the value is not printed; otherwise it is. As in C, an integer that begins with 0 (zero) isassumed tobe octal; otherwise, itisassumed tobe decimal.
+As an example of a Yacc speciﬁcation, the desk calculator does a reasonable job of showing how
+precedences and ambiguities are used, and demonstrating simple error recovery. The major
+oversimpliﬁcations are that the lexical analysis phase is much simpler than for most applications, and theoutput is produced immediately, line by line. Note the way that decimal and octal integers are read in bythe grammar rules; Thisjobisprobably better done by the lexical analyzer.
+%{
+# include <stdio.h># include <ctype.h>
+int regs[26];
+int base;
+%}%start list%token DIGIT LETTER%left ´|´
+%left ´&´%left ´+´ ´ −´
+%left ´∗´ ´/´ ´%´
+%left UMINUS / ∗supplies precedence for unary minus ∗/
+%% /∗beginning of rules section ∗/
+list : / ∗empty∗/
+|list stat ´\n´
+|list error ´\n´
+{ yyerrok; }
+;
+stat : expr
+{ printf( "%d\n", $1 ); }
+|LETTER ´=´ expr
+{ regs[$1] = $3; }
+;
+expr : ´(´ expr ´)´
+{ $$ = $2; }
+|expr ´+´ expr
+{ $$ = $1 + $3; }
+|expr ´−´ expr
+{$ $ = $ 1 −$3; }
+|expr ´∗´ expr
+{$ $ = $ 1 ∗$3; }-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-25
+|expr ´/´ expr
+{ $$ = $1 / $3; }
+|expr ´%´ expr
+{ $$ = $1 % $3; }
+|expr ´&´ expr
+{ $$ = $1 & $3; }
+|expr ´|´ expr
+{$ $ = $ 1 |$3; }
+|´−´ expr %prec UMINUS
+{$ $ = −$2; }
+|LETTER
+{ $$ = regs[$1]; }
+|number
+;
+number : DIGIT
+{ $$ =$1; base = ($1==0) ? 8 : 10; }
+|number DIGIT
+{ $$ = base ∗$1 + $2; }
+;
+%% /∗start of programs ∗/
+yylex() { / ∗lexical analysis routine ∗/
+/∗returns LETTER for a lower case letter, yylval =0 through 25 ∗/
+/∗return DIGIT for a digit, yylval =0 through 9 ∗/
+/∗all other characters are returned immediately ∗/
+int c;while( (c=getchar()) == ´ ´ ) { / ∗skip blanks ∗/}
+/∗c is now nonblank ∗/
+if( islower( c ) ) {
+yylval = c −´a´;
+return ( LETTER );}
+if( isdigit( c ) ) {
+yylval = c −´0´;
+return( DIGIT );}
+return( c );}-- --
+PS1:15-26 Yacc: Yet Another Compiler-Compiler
+AppendixB: Yacc InputSyntax
+This Appendix has a description of the Yacc input syntax, as a Yacc speciﬁcation. Context depen-
+dencies, etc., are not considered. Ironically, the Yacc input speciﬁcation language is most naturallyspeciﬁed as an LR(2) grammar; the sticky part comes when an identiﬁer is seen in a rule, immediately fol-lowing an action. If this identiﬁer is followed by a colon, it is the start of the next rule; otherwise it is acontinuation of the current rule, which just happens to have an action embedded in it. As implemented, thelexical analyzer looks ahead after seeing an identiﬁer, and decide whether the next token (skipping blanks,newlines, comments, etc.) is a colon. If so, it returns the token C_IDENTIFIER. Otherwise, it returnsIDENTIFIER. Literals (quoted strings) are also returned as IDENTIFIERS, but never as part ofC_IDENTIFIERs.
+/∗grammar for the input to Yacc ∗/
+/∗basic entities ∗/
+%token IDENTIFIER / ∗includes identiﬁers and literals ∗/
+%token C_IDENTIFIER / ∗identiﬁer (but not literal) followed by colon ∗/
+%token NUMBER / ∗[0-9]+∗/
+/∗reserved words: %type => TYPE, %left => LEFT, etc. ∗/
+%token LEFT RIGHT NONASSOC TOKEN PREC TYPE START UNION%token MARK / ∗the %% mark ∗/
+%token LCURL / ∗the %{ mark ∗/
+%token RCURL / ∗the %} mark ∗/
+/∗ascii character literals stand for themselves ∗/
+%start spec%%spec : defs MARK rules tail
+;
+tail : MARK { In this action, eat up the rest of the ﬁle }
+| /∗empty: the second MARK is optional ∗/
+;
+defs : / ∗empty∗/
+| defs def
+;
+def : START IDENTIFIER
+| UNION { Copy union deﬁnition to output }
+| LCURL { Copy C code to output ﬁle } RCURL
+| ndefs rword tag nlist
+;
+rword : TOKEN
+| LEFT
+| RIGHT
+| NONASSOC-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-27
+|TYPE
+;
+tag : / ∗empty: union tag is optional ∗/
+| ´<´ IDENTIFIER ´>´
+;
+nlist : nmno
+| nlist nmno
+| nlist ´,´ nmno
+;
+nmno : IDENTIFIER / ∗NOTE: literal illegal with %type ∗/
+| IDENTIFIER NUMBER / ∗NOTE: illegal with %type ∗/
+;
+/∗rules section ∗/
+rules : C_IDENTIFIER rbody prec
+| rules rule
+;
+rule : C_IDENTIFIER rbody prec
+| ’|’ rbody prec
+;
+rbody : / ∗empty∗/
+| rbody IDENTIFIER
+| rbody act
+;
+act : ´{´ { Copy action, translate $$, etc. } ´}´
+;
+prec : / ∗empty∗/
+| PREC IDENTIFIER
+| PREC IDENTIFIER act
+| prec ´;´
+;-- --
+PS1:15-28 Yacc: Yet Another Compiler-Compiler
+AppendixC: AnAdvancedExample
+This Appendix gives an example of a grammar using some of the advanced features discussed in
+Section 10. The desk calculator example in Appendix A is modiﬁed to provide a desk calculator that doesﬂoating point interval arithmetic. The calculator understands ﬂoating point constants, the arithmetic opera-tions +,−,∗, /, unary −, and = (assignment), and has 26 ﬂoating point variables, ‘‘a’’ through ‘‘z’’. More-
+over, italso understands intervals, written
+(x,y)
+wherexis less than or equal to y. There are 26 interval valued variables ‘‘A’’ through ‘‘Z’’ that may also
+be used. The usage is similar to that in Appendix A; assignments return no value, and print nothing, whileexpressions printthe (ﬂoatingor interval) value.
+Thisexample explores a number of interesting features of Yacc and C. Intervals are represented by a
+structure, consisting of the left and right endpoint values, stored as double’s. This structure is given a type
+name, INTERVAL, by using typedef. The Yacc value stack can also contain ﬂoating point scalars, and
+integers (used to index into the arrays holding the variable values). Notice that this entire strategy dependsstrongly on being able to assign structures and unions in C. In fact, many of the actions call functions thatreturn structures as well.
+It is also worth noting the use of YYERROR to handle error conditions: division by an interval con-
+taining 0, and an interval presented in the wrong order. In effect, the error recovery mechanism of Yacc isused tothrow away the rest of the offending line.
+In addition to the mixing of types on the value stack, this grammar also demonstrates an interesting
+use of syntax to keep track of the type (e.g. scalar or interval) of intermediate expressions. Note that ascalar can be automatically promoted to an interval if the context demands an interval value. This causes alarge number of conﬂicts when the grammar is run through Yacc: 18 Shift/Reduce and 26 Reduce/Reduce.The problem can be seen by lookingat the two inputlines:
+2.5 +( 3.5 −4. )
+and
+2.5 +( 3.5 , 4. )
+Notice that the 2.5 is to be used in an interval valued expression in the second example, but this fact is not
+known until the ‘‘,’’ is read; by this time, 2.5 is ﬁnished, and the parser cannot go back and change itsmind. More generally, itmightbe necessary tolookahead an arbitrary number of tokens to decide whetherto convert a scalar to an interval. This problem is evaded by having two rules for each binary intervalvalued operator: one when the left operand is a scalar, and one when the left operand is an interval. In thesecond case, the right operand must be an interval, so the conversion will be applied automatically.Despite this evasion, there are still many cases where the conversion may be applied or not, leading to theabove conﬂicts. They are resolved by listing the rules that yield scalars ﬁrst in the speciﬁcation ﬁle; in thisway, the conﬂicts will be resolved in the direction of keeping scalar valued expressions scalar valued untilthey are forced tobecome intervals.
+This way of handling multiple types is very instructive, but not very general. If there were many
+kinds of expression types, instead of just two, the number of rules needed would increase dramatically, andthe conﬂicts even more dramatically. Thus, while this example is instructive, it is better practice in a morenormal programming language environment to keep the type information as part of the value, and not aspart of the grammar.
+Finally, a word about the lexical analysis. The only unusual feature is the treatment of ﬂoating point
+constants. The C library routine atofis used to do the actual conversion from a character stringtoa double
+precision value. If the lexical analyzer detects an error, itresponds by returning a token that is illegal in thegrammar, provoking a syntax error inthe parser, and thence error recovery.-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-29
+%{
+# include <stdio.h>
+# include <ctype.h>
+typedef struct interval {
+double lo, hi;} INTERVAL;
+INTERVAL vmul(), vdiv();double atof();double dreg[ 26 ];
+INTERVAL vreg[ 26 ];
+%}%start lines%union {
+int ival;double dval;INTERVAL vval;}
+%token <ival> DREG VREG / ∗indices into dreg, vreg arrays ∗/
+%token <dval> CONST / ∗ﬂoating point constant ∗/
+%type <dval> dexp / ∗expression ∗/
+%type <vval> vexp / ∗interval expression ∗/
+/∗precedence information about the operators ∗/
+%left ´+´ ´ −´
+%left ´∗´ ´/´
+%left UMINUS / ∗precedence for unary minus ∗/
+%%lines : / ∗empty∗/
+|lines line
+;
+line : dexp ´\n´
+{ printf( "%15.8f\n", $1 ); }
+|vexp ´\n´
+{ printf( "(%15.8f , %15.8f )\n", $1.lo, $1.hi ); }
+|DREG ´=´ dexp ´\n´
+{ dreg[$1] = $3; }
+|VREG ´=´ vexp ´\n´-- --
+PS1:15-30 Yacc: Yet Another Compiler-Compiler
+{ vreg[$1] = $3; }
+|error ´\n´
+{ yyerrok; }
+;
+dexp : CONST
+|DREG
+{ $$ = dreg[$1]; }
+|dexp ´+´ dexp
+{ $$ = $1 + $3; }
+|dexp ´−´ dexp
+{$ $ = $ 1 −$3; }
+|dexp ´∗´ dexp
+{$ $ = $ 1 ∗$3; }
+|dexp ´/´ dexp
+{ $$ = $1 / $3; }
+|´−´ dexp %prec UMINUS
+{$ $ = −$2; }
+|´(´ dexp ´)´
+{ $$ = $2; }
+;
+vexp : dexp
+{ $$.hi = $$.lo = $1; }
+|´(´ dexp ´,´ dexp ´)´
+{$$.lo = $2;$$.hi = $4;if( $$.lo > $$.hi ){
+printf( "interval out of order\n" );YYERROR;}
+}
+|VREG
+{ $$ = vreg[$1]; }
+|vexp ´+´ vexp
+{ $$.hi = $1.hi + $3.hi;
+$$.lo = $1.lo + $3.lo; }
+|dexp ´+´ vexp
+{ $$.hi = $1 + $3.hi;
+$$.lo = $1 + $3.lo; }
+|vexp ´−´ vexp
+{ $$.hi = $1.hi −$3.lo;
+$$.lo = $1.lo −$3.hi; }
+|dexp ´−´ vexp
+{ $$.hi = $1 −$3.lo;
+$$.lo = $1 −$3.hi; }
+|vexp ´∗´ vexp
+{ $$ = vmul( $1.lo, $1.hi, $3 ); }
+|dexp ´∗´ vexp
+{ $$ = vmul( $1, $1, $3 ); }
+|vexp ´/´ vexp
+{ if( dcheck( $3 ) ) YYERROR;
+$$ = vdiv( $1.lo, $1.hi, $3 ); }-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-31
+|dexp ´/´ vexp
+{ if( dcheck( $3 ) ) YYERROR;
+$$ = vdiv( $1, $1, $3 ); }
+|´−´ vexp %prec UMINUS
+{ $$.hi = −$2.lo; $$.lo = −$2.hi; }
+|´(´ vexp ´)´
+{ $$ = $2; }
+;
+%%# deﬁne BSZ 50 / ∗buffer size for ﬂoating point numbers ∗/
+/∗lexical analysis ∗/
+yylex(){
+register c;
+while( (c=getchar()) == ´ ´ ){ /∗skip over blanks ∗/}
+if( isupper( c ) ){
+yylval.ival = c −´A´;
+return( VREG );}
+if( islower( c ) ){
+yylval.ival = c −´a´;
+return( DREG );}
+if( isdigit( c ) ||c==´.´ ){
+/∗gobble up digits, points, exponents ∗/
+char buf[BSZ+1], ∗cp = buf;
+int dot = 0, exp = 0;
+for( ; (cp −buf)<BSZ ; ++cp,c=getchar() ){
+∗cp = c;
+if( isdigit( c ) ) continue;if( c == ´.´ ){
+if( dot++ ||exp ) return( ´.´ ); / ∗will cause syntax error ∗/
+continue;}
+if( c == ´e´ ){
+if( exp++ ) return( ´e´ ); / ∗will cause syntax error ∗/
+continue;}
+/∗end of number ∗/
+break;}
+∗cp = ´\0´;
+if( (cp−buf) >= BSZ ) printf( "constant too long: truncated\n" );-- --
+PS1:15-32 Yacc: Yet Another Compiler-Compiler
+else ungetc( c, stdin ); / ∗push back last char read ∗/
+yylval.dval = atof( buf );return( CONST );}
+return( c );}
+INTERVAL hilo( a, b, c, d ) double a, b, c, d; {
+/∗returns the smallest interval containing a, b, c, and d ∗/
+/∗used by ∗, / routines ∗/
+INTERVAL v;
+if( a>b ) { v.hi = a; v.lo = b; }
+else { v.hi = b; v.lo = a; }
+if( c>d ) {
+if( c>v.hi ) v.hi = c;if( d<v.lo ) v.lo = d;}
+else {
+if( d>v.hi ) v.hi = d;if( c<v.lo ) v.lo = c;}
+return( v );}
+INTERVAL vmul( a, b, v ) double a, b; INTERVAL v; {
+return( hilo( a ∗v.hi, a∗v.lo, b∗v.hi, b∗v.lo ) );
+}
+dcheck( v ) INTERVAL v; {
+if( v.hi >= 0. && v.lo <= 0. ){
+printf( "divisor interval contains 0.\n" );return( 1 );}
+return( 0 );}
+INTERVAL vdiv( a, b, v ) double a, b; INTERVAL v; {
+return( hilo( a/v.hi, a/v.lo, b/v.hi, b/v.lo ) );}-- --
+Yacc: Yet Another Compiler-Compiler PS1:15-33
+AppendixD: OldFeatures SupportedbutnotEncouraged
+This Appendix mentions synonyms and features which are supported for historical continuity, but,
+for various reasons, are notencouraged.
+1. Literals may also be delimitedby double quotes ‘‘"’’.2. Literals may be more than one character long. If all the characters are alphabetic, numeric, or /ul, the
+type number of the literal is deﬁned, just as if the literal did not have the quotes around it. Other-wise, itisdifﬁculttoﬁndthe value for such literals.
+The use of multi-character literals is likely to mislead those unfamiliar with Yacc, since it suggests
+that Yacc isdoinga jobwhich mustbe actually done by the lexical analyzer.
+3. Most places where % is legal, backslash ‘‘\’’ may be used. In particular, \\ is the same as %%, \left
+the same as %left, etc.
+4. There are a number of other synonyms:
+%< isthe same as %left
+%> isthe same as %right%binary and %2 are the same as %nonassoc%0 and %term are the same as %token%= isthe same as %prec
+5. Actions may also have the form
+= {...}
+and the curly braces can be dropped if the action isa singleCstatement.
+6. C code between %{ and %} used to be permitted at the head of the rules section, as well as in the
+declaration section.
+-- --

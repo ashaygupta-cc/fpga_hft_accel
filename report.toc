@@ -1,0 +1,24 @@
+\contentsline {chapter}{Abstract}{i}{chapter*.1}%
+\contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Project Overview}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Motivation for Hardware Acceleration}{1}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Objectives}{1}{section.1.3}%
+\contentsline {chapter}{\numberline {2}System Architecture}{2}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Top Level Design}{2}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Explanation of Source Code Modules}{3}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}\texttt {hft\_top.sv}}{3}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}\texttt {order\_book.sv}}{3}{subsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.2.3}\texttt {pc\_sender.py}}{3}{subsection.2.2.3}%
+\contentsline {chapter}{\numberline {3}Hardware Implementation Details}{4}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Vivado Synthesis Flow}{4}{section.3.1}%
+\contentsline {section}{\numberline {3.2}System State Machine Pipeline}{4}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Implementation and Design}{5}{section.3.3}%
+\contentsline {chapter}{\numberline {4}Results and Demonstration}{6}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Simulation Outputs}{6}{section.4.1}%
+\contentsline {section}{\numberline {4.2}FPGA Software Client Emulation}{7}{section.4.2}%
+\contentsline {chapter}{\numberline {5}Conclusion}{8}{chapter.5}%
+\contentsline {chapter}{\numberline {A}SystemVerilog Hardware Sources}{9}{appendix.A}%
+\contentsline {section}{\numberline {A.1}\texttt {hft\_top.sv}}{9}{section.A.1}%
+\contentsline {section}{\numberline {A.2}\texttt {order\_book.sv}}{12}{section.A.2}%
+\contentsline {chapter}{\numberline {B}Software Client Source Code}{20}{appendix.B}%
+\contentsline {section}{\numberline {B.1}\texttt {pc\_sender.py}}{20}{section.B.1}%
