@@ -287,7 +287,9 @@ This project welcomes contributions from the FPGA and HFT communities. Areas for
 
 ## License
 
-This project is developed for educational and research purposes. Please contact the authors for licensing inquiries.
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+The MIT License permits free use, modification, and distribution of the software for any purpose, provided that the original copyright notice and license text are included.
 
 ## Authors
 
