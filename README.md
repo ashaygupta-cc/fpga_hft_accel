@@ -1,5 +1,7 @@
 # FPGA High-Frequency Trading Accelerator
 
+![Project Logo](images/logo.png)
+
 ## Overview
 
 This project implements a low-latency High-Frequency Trading (HFT) accelerator using FPGA technology. The system features a complete Limit Order Book (LOB) matching engine implemented directly in hardware logic, eliminating unpredictable delays associated with traditional operating systems. By leveraging FPGA parallelism and custom UART-based communication protocols, the accelerator achieves microsecond-level order processing speeds.
@@ -24,6 +26,10 @@ The architecture consists of three main layers:
 1. **Ingress Layer**: External PC sends trading commands via UART, serialized into 5-byte packets
 2. **State Machine Core**: UART receiver decodes incoming data and feeds it to the processing engine
 3. **Memory Matrix**: FPGA-internal arrays maintain bid/ask order book state with parallel processing
+
+![System Design Architecture](images/11_system_design.png)
+
+*Figure 1: Top-Level System Architecture bridging Algorithmic Networks with Native Register Level processing arrays.*
 
 ### Key Components
 
@@ -90,6 +96,49 @@ fpga_hft_accel/
 │       └── imports/
 └── ...                                 # Additional generated files
 ```
+
+## Screenshots
+
+### Development Workflow
+![Vivado Project Creation](images/1_project_creation.png)  
+*Figure 2: Vivado Ecosystem Mapping and FPGA Device Definition.*
+
+![RTL Schematic](images/2_rtl_schematic.png)  
+*Figure 3: Register Transfer Level schematic of the design.*
+
+### Synthesis and Implementation
+![Synthesis Summary](images/3_synthesis_summary.png)  
+*Figure 4: Synthesis summary report.*
+
+![Synthesis Utilization](images/4_synthesis_utilization.png)  
+*Figure 5: Resource utilization after synthesis.*
+
+### Simulation Results
+![Behavioral Simulation](images/5_simulation_behavioral.png)  
+*Figure 6: Behavioral simulation waveform.*
+
+![Simulation Waveforms](images/6_simulation_waveforms.png)  
+*Figure 7: Detailed simulation waveforms.*
+
+![Zoomed Simulation](images/7_simulation_zoomed.png)  
+*Figure 8: Zoomed-in view of simulation waveforms.*
+
+### Implementation and Hardware
+![Implementation Design](images/8_implementation_design.png)  
+*Figure 9: Post-implementation design view.*
+
+![Timing and Power](images/9_timing_power.png)  
+*Figure 10: Timing and power analysis reports.*
+
+![FPGA Board](images/13_fpga_board.png)  
+*Figure 11: Physical deployment on target FPGA board.*
+
+### Data Flow and Output
+![Data Flow Diagram](images/12_dataflow_diagram.png)  
+*Figure 12: System data flow diagram.*
+
+![PC Sender Output](images/10_pc_sender_output.png)  
+*Figure 13: Python PC sender script output.*
 
 ## Installation and Setup
 
